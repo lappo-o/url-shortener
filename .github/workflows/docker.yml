@@ -24,4 +24,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: lappo29/url-shortener:latest
+          tags: lappo29/url-shortener:$(date +%Y%m%d-%H%M%S)
