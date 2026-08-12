@@ -45,14 +45,13 @@ func main() {
 	userHandler := handler.NewUserHandler(userService)
 
 	r.Post("/register", userHandler.RegisterHandler)
-	r.Get("/login", userHandler.LoginHandler)
+	r.Post("/login", userHandler.LoginHandler)
 	r.Get("/{code}", urlHandler.Redirect)
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware)
 		r.Post("/short", urlHandler.Shorten)
 		r.Get("/urls", urlHandler.ShowUrls)
-
 	})
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
