@@ -19,13 +19,27 @@
 - **golang-migrate**
 - **make**
 
-### 1. Docker compose
+### 1. Настройка окружения
+
+Создай `.env` файл в корне проекта:
+
+- Linux/macOS:
+```bash
+cp .env.example .env
+```
+
+- Windows PowerShell:
+```bash
+Copy-Item .env.example .env
+```
+
+### 2. Docker compose
 
 ```bash
 docker-compose up
 ```
 
-### 2. Запуск программы
+### 3. Запуск программы
 
 ```bash
 make run
