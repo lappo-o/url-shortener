@@ -10,16 +10,19 @@ import (
 	"url-shortener/internal/repository"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	repo *repository.UserRepository
+	repo  *repository.UserRepository
+	redis *redis.Client
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
+func NewUserService(repo *repository.UserRepository, redis *redis.Client) *UserService {
 	return &UserService{
-		repo: repo,
+		repo:  repo,
+		redis: redis,
 	}
 }
 
