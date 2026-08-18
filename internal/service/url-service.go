@@ -4,18 +4,22 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"time"
 	"url-shortener/internal/helper"
 	"url-shortener/internal/model"
-	"url-shortener/internal/repository"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type URLService struct {
-	repo *repository.URLRepository
+	repo  URLRepository
+	redis *redis.Client
 }
 
-func NewURLService(urlR *repository.URLRepository) *URLService {
+func NewURLService(urlR URLRepository, redis *redis.Client) *URLService {
 	return &URLService{
-		repo: urlR,
+		repo:  urlR,
+		redis: redis,
 	}
 }
 
@@ -48,6 +52,10 @@ func (s *URLService) ShortenService(ctx context.Context, URL string, userID int)
 		return "", err
 	}
 
+	if s.redis != nil {
+		s.redis.Set(ctx, "url:"+codeForUrl, URL, 24*time.Hour)
+	}
+
 	return buildURL(codeForUrl), nil
 
 }
@@ -61,9 +69,19 @@ func buildURL(codeForUrl string) string {
 
 func (s *URLService) RedirestService(ctx context.Context, code string) (string, error) {
 
+	if s.redis != nil {
+		if cached, err := s.redis.Get(ctx, "url:"+code).Result(); err == nil {
+			return cached, nil
+		}
+	}
+
 	oUrl, err := s.repo.TakeOriginalUrlRepo(ctx, code)
 	if err != nil {
 		return "", err
+	}
+
+	if s.redis != nil {
+		s.redis.Set(ctx, "url:"+code, oUrl, 24*time.Hour)
 	}
 
 	return oUrl, nil
