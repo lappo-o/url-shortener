@@ -1,6 +1,9 @@
 services:
   postgres:
     image: postgres:18
+    container_name: url-shortener-postgres
+    ports:
+      - "5432:5432"
     env_file:
       - .env
     volumes:
@@ -11,10 +14,29 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: url-shortener-redis
+    ports:
+      - "6379:6379"
+    env_file:
+      - .env
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
-    image: lappo29/url-shortener:v1
+    image: lappo29/url-shortener:latest
+    container_name: url-shortener-app
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -23,3 +45,4 @@ services:
 
 volumes:
   pgdata:
+  redis-data:
