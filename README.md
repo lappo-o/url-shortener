@@ -6,6 +6,7 @@
 
 - **Go** — API
 - **PostgreSQL 18** — хранение данных
+- **Redis** — кеширование
 - **Docker / Docker Compose** — контейнеризация
 - **golang-migrate** — миграции
 - **Makefile** — автоматизация
@@ -152,3 +153,18 @@ make migrate-down-all
 ```bash
 make migrate-create name=your_name
 ```
+
+## Тестирование
+
+```bash
+go test ./...
+```
+
+## CI/CD
+
+При пуше в `main` GitHub Actions:
+- Запускает тесты
+- Собирает Docker-образ
+- Пушит в Docker Hub с тегами `latest` и `<sha>`
+
+При создании Pull Request - запускает тесты.
