@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 	"url-shortener/internal/service/mocks"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -64,5 +66,48 @@ func TestShortenService_NewURL(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, result)
 	assert.Contains(t, result, "https://short.com/")
+
+}
+
+func TestRedirectService_CacheHit(t *testing.T) {
+
+	mockRepo := new(mocks.URLRepositoryMock)
+	mockRedis := new(mocks.RedisClientMock)
+
+	mockRedis.On("Get", mock.Anything, "url:abc123").Return("https://example.com", nil)
+
+	s := NewURLService(mockRepo, mockRedis)
+
+	result, err := s.RedirestService(context.Background(), "abc123")
+
+	assert.Nil(t, err)
+	assert.Equal(t, "https://example.com", result)
+
+	mockRepo.AssertNotCalled(t, "TakeOriginalUrlRepo", mock.Anything, "abc123")
+
+}
+
+func TestRedirectService_CacheMiss(t *testing.T) {
+
+	mockRepo := new(mocks.URLRepositoryMock)
+	mockRepo.On("TakeOriginalUrlRepo", mock.Anything, "abc123").
+		Return("https://example.com", nil)
+
+	mockRedis := new(mocks.RedisClientMock)
+	mockRedis.On("Get", mock.Anything, "url:abc123").
+		Return(nil, redis.Nil)
+	mockRedis.On("Set", mock.Anything, "url:abc123", "https://example.com", 24*time.Hour).
+		Return(nil)
+
+	s := NewURLService(mockRepo, mockRedis)
+
+	result, err := s.RedirestService(context.Background(), "abc123")
+
+	assert.Nil(t, err)
+	assert.Equal(t, "https://example.com", result)
+
+	mockRepo.AssertCalled(t, "TakeOriginalUrlRepo", mock.Anything, "abc123")
+
+	mockRedis.AssertCalled(t, "Set", mock.Anything, "url:abc123", "https://example.com", 24*time.Hour)
 
 }

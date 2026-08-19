@@ -7,16 +7,14 @@ import (
 	"time"
 	"url-shortener/internal/helper"
 	"url-shortener/internal/model"
-
-	"github.com/redis/go-redis/v9"
 )
 
 type URLService struct {
 	repo  URLRepository
-	redis *redis.Client
+	redis RedisClient
 }
 
-func NewURLService(urlR URLRepository, redis *redis.Client) *URLService {
+func NewURLService(urlR URLRepository, redis RedisClient) *URLService {
 	return &URLService{
 		repo:  urlR,
 		redis: redis,
