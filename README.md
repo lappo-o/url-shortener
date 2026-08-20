@@ -40,12 +40,6 @@ Copy-Item .env.example .env
 docker-compose up
 ```
 
-### 3. Запуск программы
-
-```bash
-make run
-```
-
 ### После запуска API доступно на: http://localhost:8080
 
 ## Регистрация

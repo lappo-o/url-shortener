@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,8 +23,33 @@ import (
 
 func main() {
 
+	levelStr := os.Getenv("LOG_LEVEL")
+
+	var level slog.Level
+
+	switch levelStr {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	if os.Getenv("ENV") == "production" {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: level,
+		})))
+	} else {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: level,
+		})))
+	}
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables.")
+		slog.Info("No .env file found, using system environment variables.")
 	}
 
 	ctx := context.Background()
@@ -34,21 +58,27 @@ func main() {
 
 	pool, err := db.NewPostgresPool(ctx, connString)
 	if err != nil {
-		log.Fatalf("postgres: %v", err)
+		slog.Error("postgres connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
-	fmt.Println("PostgreSQL connected")
+	slog.Info("PostgreSQL connected")
 
 	addr := os.Getenv("REDIS_ADDR")
 	password := os.Getenv("REDIS_PASSWORD")
 	dbNum, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		slog.Error("invalid REDIS_DB", "error", err)
+		os.Exit(1)
+	}
 
 	rdClient, err := rdb.NewRedis(addr, password, dbNum)
 	if err != nil {
-		log.Fatalf("redis: %v", err)
+		slog.Error("Create a Redis client failed", "error", err)
+		os.Exit(1)
 	}
 	defer rdClient.Close()
-	fmt.Println("Redis connected")
+	slog.Info("Redis connected")
 
 	r := chi.NewRouter()
 
@@ -59,6 +89,8 @@ func main() {
 	userRepo := repository.NewUserRepository(pool)
 	userService := service.NewUserService(userRepo, rdClient)
 	userHandler := handler.NewUserHandler(userService)
+
+	r.Use(middleware.LoggingMiddleware)
 
 	r.Post("/register", userHandler.RegisterHandler)
 	r.Post("/login", userHandler.LoginHandler)
@@ -76,9 +108,10 @@ func main() {
 	}
 
 	go func() {
-		fmt.Println("Server started on :8080")
+		slog.Info("Server started on :8080")
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server: %v", err)
+			slog.Error("Server startup failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -86,15 +119,16 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	fmt.Println("Shutting down...")
+	slog.Info("Shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("server shutdown: %v", err)
+		slog.Error("Server shutdown failed", "error", err)
+		os.Exit(1)
 	}
 
-	fmt.Println("Server exited")
+	slog.Info("Server exited")
 
 }

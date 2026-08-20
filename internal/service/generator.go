@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
+	"log/slog"
 	"math/big"
 	"url-shortener/internal/helper"
 )
@@ -17,7 +17,7 @@ func generate() (string, error) {
 	for i := range slice {
 		newBig, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
-			fmt.Println("(-_-) как такое возможно...")
+			slog.Error("(-_-) как такое возможно...", "error", err)
 			return "", helper.ErrInternalServer
 		}
 		slice[i] = charset[newBig.Int64()]

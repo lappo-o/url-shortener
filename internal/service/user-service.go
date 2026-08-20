@@ -3,23 +3,21 @@ package service
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/mail"
 	"url-shortener/internal/auth"
 	"url-shortener/internal/helper"
-	"url-shortener/internal/repository"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	repo  *repository.UserRepository
-	redis *redis.Client
+	repo  UserRepository
+	redis RedisClient
 }
 
-func NewUserService(repo *repository.UserRepository, redis *redis.Client) *UserService {
+func NewUserService(repo UserRepository, redis RedisClient) *UserService {
 	return &UserService{
 		repo:  repo,
 		redis: redis,
@@ -33,19 +31,22 @@ func (s *UserService) RegisterService(
 
 	_, err := mail.ParseAddress(email)
 	if err != nil {
+		slog.Warn("invalid email format", "email", email)
 		return helper.ErrInvalidEmail
 	}
 
 	if len(pw) < 6 || len(pw) > 72 {
+		slog.Warn("invalid password length", "email", email)
 		return helper.ErrInvalidPassword
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("bcrypt generate err: %v", err)
+		slog.Error("bcrypt generate failed", "error", err)
 		return errors.New("internal server error")
 	}
 
+	slog.Info("user registered", "email", email)
 	return s.repo.SaveUser(ctx, email, string(hashedPassword))
 
 }
@@ -58,22 +59,25 @@ func (s *UserService) LoginService(
 	userID, hash, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("login failed: user not found", "email", email)
 			return "", helper.ErrUnauthorized
 		}
-		log.Printf("get password hash failed: %v", err)
+		slog.Error("GetUserByEmail failed", "error", err)
 		return "", helper.ErrInternalServer
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pw)); err != nil {
+		slog.Warn("login failed: wrong password", "email", email)
 		return "", helper.ErrUnauthorized
 	}
 
 	token, err := auth.GenerateToken(userID)
 	if err != nil {
-		log.Printf("generate token failed: %v", err)
+		slog.Error("generate token failed", "error", err, "userID", userID)
 		return "", helper.ErrInternalServer
 	}
 
+	slog.Info("user logged in", "userID", userID, "email", email)
 	return token, nil
 
 }
