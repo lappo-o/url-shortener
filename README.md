@@ -148,6 +148,13 @@ make migrate-down-all
 make migrate-create name=your_name
 ```
 
+### 7. Логи
+
+```bash
+make logs       # только приложения
+make logs-all   # все контейнеры
+```
+
 ## Тестирование
 
 ```bash

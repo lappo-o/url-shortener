@@ -27,3 +27,9 @@ migrate-version:
 
 run: migrate-up
 	-go run cmd/main.go
+
+logs:
+	docker logs -f url-shortener-app
+
+logs-all:
+	docker compose logs -f
