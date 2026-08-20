@@ -5,7 +5,7 @@ package helper
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"url-shortener/internal/model"
 )
@@ -50,7 +50,7 @@ func mapError(err error) (int, string) {
 func ErrorHandler(w http.ResponseWriter, err error) {
 	status, errMsg := mapError(err)
 	if status == http.StatusInternalServerError {
-		log.Printf("internal error: %v", err)
+		slog.Error("internal error", "error", err)
 	}
 	WriteJSON(w, status, nil, errMsg)
 }

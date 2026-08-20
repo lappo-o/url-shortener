@@ -3,8 +3,10 @@ package middleware
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 	"url-shortener/internal/auth"
 	"url-shortener/internal/helper"
 )
@@ -12,6 +14,27 @@ import (
 type contextKey string
 
 const UserIDKey contextKey = "userID"
+
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		start := time.Now()
+
+		slog.Info("request started",
+			"method", r.Method,
+			"path", r.URL.Path,
+		)
+
+		next.ServeHTTP(w, r)
+
+		slog.Info("request completed",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"duration", time.Since(start),
+		)
+
+	})
+}
 
 func AuthMiddleware(next http.Handler) http.Handler {
 

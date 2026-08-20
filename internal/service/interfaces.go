@@ -21,3 +21,8 @@ type RedisClient interface {
 	Get(ctx context.Context, key string) *redis.StringCmd
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
 }
+
+type UserRepository interface {
+	SaveUser(ctx context.Context, email, pwH string) error
+	GetUserByEmail(ctx context.Context, email string) (id int, passwordHash string, err error)
+}

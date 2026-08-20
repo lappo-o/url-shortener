@@ -2,8 +2,6 @@ services:
   postgres:
     image: postgres:18
     container_name: url-shortener-postgres
-    ports:
-      - "5432:5432"
     env_file:
       - .env
     volumes:
@@ -17,8 +15,6 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: url-shortener-redis
-    ports:
-      - "6379:6379"
     env_file:
       - .env
     volumes:
