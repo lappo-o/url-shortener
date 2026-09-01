@@ -18,6 +18,8 @@ import (
 	"url-shortener/internal/service"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 	"github.com/joho/godotenv"
 )
 
@@ -90,6 +92,11 @@ func main() {
 	userService := service.NewUserService(userRepo, rdClient)
 	userHandler := handler.NewUserHandler(userService)
 
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.ClientIPFromRemoteAddr)
+	r.Use(httprate.LimitBy(50, time.Minute, func(r *http.Request) (string, error) {
+		return httprate.CanonicalizeIP(chimiddleware.GetClientIP(r.Context())), nil
+	}))
 	r.Use(middleware.LoggingMiddleware)
 
 	r.Post("/register", userHandler.RegisterHandler)
@@ -103,28 +110,37 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: r,
+		Addr:              ":8080",
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
+
+	serverErr := make(chan error, 1)
 
 	go func() {
 		slog.Info("Server started on :8080")
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("Server startup failed", "error", err)
-			os.Exit(1)
+			serverErr <- err
 		}
 	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	slog.Info("Shutting down...")
+	select {
+	case err := <-serverErr:
+		slog.Error("Server startup failed", "error", err)
+	case <-quit:
+		slog.Info("Shutting down...")
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Server shutdown failed", "error", err)
 		os.Exit(1)
 	}
